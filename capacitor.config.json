@@ -1,0 +1,14 @@
+{
+  "appId": "uz.claude.game2048",
+  "appName": "2048 Qizil-Qora",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "backgroundColor": "#0d0a07",
+  "android": {
+    "backgroundColor": "#0d0a07"
+  },
+  "ios": {
+    "backgroundColor": "#0d0a07",
+    "contentInset": "always"
+  }
+}

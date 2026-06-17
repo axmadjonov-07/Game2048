@@ -1,0 +1,45 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node.js o'rnatish
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Java o'rnatish
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Android SDK o'rnatish
+        uses: android-actions/setup-android@v3
+
+      - name: NPM paketlarni o'rnatish
+        run: npm install
+
+      - name: Web fayllarni Android loyihasiga sinxronlash
+        run: npx cap sync android
+
+      - name: Gradle ga ruxsat berish
+        run: chmod +x android/gradlew
+
+      - name: APK build qilish (debug, imzosiz - to'g'ridan-to'g'ri o'rnatiladi)
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: APK ni yuklab olish uchun saqlash
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2048-android-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

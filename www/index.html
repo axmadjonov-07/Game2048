@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d0a07">
+<title>2048</title>
+<style>
+  :root{
+    --bg:#0d0a07;
+    --board:#1a1410;
+    --cell:#2a2018;
+    --line:#42120c;
+    --accent:#ff4d2e;
+    --accent2:#ffb02e;
+    --text:#f4ece1;
+    --muted:#8a7a6a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:radial-gradient(circle at 30% 0%, #221810 0%, var(--bg) 60%);
+    font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    color:var(--text);
+    overflow-x:hidden;
+    overflow-y:auto;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:manipulation;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap{
+    width:100%;
+    max-width:480px;
+    padding:18px 16px 30px;
+  }
+  .top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+  }
+  .title-block h1{
+    font-size:2.4rem;
+    margin:0;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    letter-spacing:1px;
+  }
+  .title-block p{
+    margin:2px 0 0;
+    font-size:0.78rem;
+    color:var(--muted);
+  }
+  .scores{
+    display:flex;
+    gap:8px;
+  }
+  .score-box{
+    background:var(--cell);
+    border-radius:10px;
+    padding:8px 14px;
+    text-align:center;
+    min-width:64px;
+    border:1px solid var(--line);
+  }
+  .score-box .lbl{
+    font-size:0.62rem;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+  }
+  .score-box .val{
+    font-size:1.15rem;
+    font-weight:bold;
+    color:var(--text);
+  }
+  .controls-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+  }
+  .hint{
+    font-size:0.75rem;
+    color:var(--muted);
+  }
+  .btn{
+    border:none;
+    border-radius:8px;
+    padding:8px 14px;
+    font-size:0.82rem;
+    font-weight:bold;
+    cursor:pointer;
+    transition:transform .12s ease, filter .12s ease;
+  }
+  .btn:active{transform:scale(0.94);}
+  .btn-primary{
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#1a1006;
+  }
+  .btn-ghost{
+    background:var(--cell);
+    color:var(--text);
+    border:1px solid var(--line);
+  }
+  .board-outer{
+    position:relative;
+    background:var(--board);
+    border-radius:16px;
+    padding:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5), inset 0 0 0 1px #000;
+  }
+  .board-bg{
+    position:relative;
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    grid-template-rows:repeat(4,1fr);
+    gap:12px;
+    aspect-ratio:1/1;
+  }
+  .cell-bg{
+    background:var(--cell);
+    border-radius:8px;
+    border:1px solid var(--line);
+  }
+  .tiles-layer{
+    position:absolute;
+    top:12px;left:12px;right:12px;bottom:12px;
+  }
+  .tile{
+    position:absolute;
+    will-change:transform,opacity;
+    transition:transform 130ms cubic-bezier(.2,.7,.3,1);
+    z-index:1;
+  }
+  .tile.tile-merge{ z-index:5; }
+  .tile-inner{
+    width:100%;height:100%;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:8px;
+    font-weight:800;
+    color:#1f140a;
+    box-shadow:0 3px 0 rgba(0,0,0,0.25);
+  }
+  .tile-spawn .tile-inner{
+    animation:spawnPop 180ms ease-out;
+  }
+  @keyframes spawnPop{
+    0%{transform:scale(0.3);opacity:0;}
+    70%{transform:scale(1.08);opacity:1;}
+    100%{transform:scale(1);opacity:1;}
+  }
+  .tile-merge .tile-inner{
+    animation:mergePop 160ms ease-out;
+  }
+  @keyframes mergePop{
+    0%{transform:scale(1);}
+    45%{transform:scale(1.18);}
+    100%{transform:scale(1);}
+  }
+  /* Har bir son qizil-qora "to'kilgan bo'yoq" aralashmasi ko'rinishida.
+     Qiymat oshgani sayin qizil ulushi ko'payadi va bo'yoq "qizib" boradi. */
+  .v2{
+    background:
+      radial-gradient(circle at 28% 22%, rgba(20,14,10,0.95) 0%, transparent 42%),
+      radial-gradient(circle at 75% 70%, rgba(180,20,10,0.85) 0%, transparent 50%),
+      linear-gradient(155deg,#241b15,#120d09);
+    color:#e8c9b0;
+  }
+  .v4{
+    background:
+      radial-gradient(circle at 70% 25%, rgba(20,14,10,0.92) 0%, transparent 45%),
+      radial-gradient(circle at 25% 75%, rgba(200,30,15,0.9) 0%, transparent 55%),
+      linear-gradient(155deg,#2a1a12,#150c08);
+    color:#f0d2ba;
+  }
+  .v8{
+    background:
+      radial-gradient(circle at 30% 70%, rgba(15,10,8,0.9) 0%, transparent 48%),
+      radial-gradient(circle at 70% 30%, rgba(215,35,15,0.95) 0%, transparent 58%),
+      linear-gradient(155deg,#33150f,#150806);
+    color:#ffe2cc;
+  }
+  .v16{
+    background:
+      radial-gradient(circle at 65% 75%, rgba(10,7,6,0.85) 0%, transparent 45%),
+      radial-gradient(circle at 30% 25%, rgba(230,45,15,1) 0%, transparent 60%),
+      linear-gradient(155deg,#3a1209,#180604);
+    color:#ffe8d6;
+  }
+  .v32{
+    background:
+      radial-gradient(circle at 40% 80%, rgba(8,5,4,0.75) 0%, transparent 42%),
+      radial-gradient(circle at 65% 20%, rgba(240,55,20,1) 0%, transparent 62%),
+      linear-gradient(155deg,#4a1208,#1a0503);
+    color:#fff0e2;
+  }
+  .v64{
+    background:
+      radial-gradient(circle at 25% 30%, rgba(6,4,3,0.65) 0%, transparent 40%),
+      radial-gradient(circle at 70% 65%, rgba(250,65,20,1) 0%, transparent 66%),
+      linear-gradient(155deg,#5c1207,#1c0502);
+    color:#fff5ea;
+    box-shadow:0 0 14px 1px rgba(250,60,20,0.35), 0 3px 0 rgba(0,0,0,0.25);
+  }
+  .v128{
+    background:
+      radial-gradient(circle at 55% 75%, rgba(5,3,2,0.55) 0%, transparent 38%),
+      radial-gradient(circle at 35% 25%, rgba(255,80,25,1) 0%, transparent 68%),
+      linear-gradient(155deg,#6e1206,#1e0502);
+    color:#fff8ef;
+    font-size:0.85em;
+    box-shadow:0 0 16px 2px rgba(255,75,25,0.45), 0 3px 0 rgba(0,0,0,0.25);
+  }
+  .v256{
+    background:
+      radial-gradient(circle at 30% 65%, rgba(4,2,2,0.45) 0%, transparent 35%),
+      radial-gradient(circle at 65% 30%, rgba(255,95,25,1) 0%, transparent 70%),
+      linear-gradient(155deg,#7e1305,#200502);
+    color:#fffaf3;
+    font-size:0.85em;
+    box-shadow:0 0 18px 2px rgba(255,90,30,0.5), 0 3px 0 rgba(0,0,0,0.25);
+  }
+  .v512{
+    background:
+      radial-gradient(circle at 45% 70%, rgba(3,2,1,0.35) 0%, transparent 32%),
+      radial-gradient(circle at 60% 25%, rgba(255,115,30,1) 0%, transparent 72%),
+      linear-gradient(155deg,#8e1405,#220502);
+    color:#fffaf3;
+    font-size:0.85em;
+    box-shadow:0 0 20px 3px rgba(255,105,35,0.55), 0 3px 0 rgba(0,0,0,0.25);
+  }
+  .v1024{
+    background:
+      radial-gradient(circle at 35% 70%, rgba(2,1,1,0.3) 0%, transparent 30%),
+      radial-gradient(circle at 65% 30%, rgba(255,140,35,1) 0%, transparent 75%),
+      linear-gradient(155deg,#9e1604,#240502);
+    color:#fffdf8;
+    font-size:0.72em;
+    box-shadow:0 0 22px 4px rgba(255,125,40,0.6), 0 3px 0 rgba(0,0,0,0.25);
+  }
+  .v2048{
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,170,40,1) 0%, transparent 55%),
+      radial-gradient(circle at 70% 70%, rgba(180,10,5,1) 0%, transparent 60%),
+      linear-gradient(155deg,#b01c03,#280502);
+    color:#fffef9;
+    font-size:0.72em;
+    box-shadow:0 0 30px 6px rgba(255,150,40,0.8), 0 3px 0 rgba(0,0,0,0.25);
+  }
+  .v4096{
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,190,60,1) 0%, transparent 58%),
+      radial-gradient(circle at 70% 70%, rgba(150,5,5,1) 0%, transparent 62%),
+      linear-gradient(155deg,#c01f02,#2a0501);
+    color:#fffef9;
+    font-size:0.65em;
+    box-shadow:0 0 34px 8px rgba(255,170,50,0.9), 0 3px 0 rgba(0,0,0,0.25);
+  }
+  .v8192{
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,210,80,1) 0%, transparent 60%),
+      radial-gradient(circle at 70% 70%, rgba(120,0,0,1) 0%, transparent 65%),
+      linear-gradient(155deg,#d02200,#2c0501);
+    color:#fffef9;
+    font-size:0.6em;
+    box-shadow:0 0 40px 10px rgba(255,190,60,1), 0 3px 0 rgba(0,0,0,0.25);
+  }
+
+  .difficulty-bar{
+    margin-top:14px;
+    height:6px;
+    border-radius:4px;
+    background:var(--cell);
+    overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .difficulty-fill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,var(--accent2),var(--accent));
+    transition:width 0.4s ease;
+  }
+  .difficulty-label{
+    font-size:0.65rem;
+    color:var(--muted);
+    margin-top:4px;
+    text-align:right;
+  }
+
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(8,5,3,0.86);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.25s ease;
+  }
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .overlay-card{
+    background:var(--board);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:32px 28px;
+    text-align:center;
+    max-width:320px;
+    width:88%;
+    box-shadow:0 20px 50px rgba(0,0,0,0.6);
+    transform:translateY(10px) scale(0.96);
+    transition:transform 0.25s ease;
+  }
+  .overlay.show .overlay-card{transform:translateY(0) scale(1);}
+  .overlay-card h2{
+    margin:0 0 6px;
+    font-size:1.5rem;
+  }
+  .overlay-card .newrec{
+    color:var(--accent2);
+    font-weight:bold;
+    font-size:0.85rem;
+    margin-bottom:14px;
+  }
+  .overlay-card .scoreline{
+    display:flex;
+    justify-content:space-around;
+    margin:16px 0 22px;
+  }
+  .overlay-card .scoreline div{
+    text-align:center;
+  }
+  .overlay-card .scoreline .lbl{
+    font-size:0.65rem;
+    color:var(--muted);
+    text-transform:uppercase;
+  }
+  .overlay-card .scoreline .val{
+    font-size:1.4rem;
+    font-weight:bold;
+  }
+  .overlay-buttons{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+  }
+  .overlay-buttons .btn{flex:1;padding:11px;}
+
+  .pause-icon-row{
+    display:flex;
+    gap:8px;
+  }
+
+  /* ===== EKRANLAR (menyu / sozlamalar / o'yin) ===== */
+  .screen{
+    display:none;
+    width:100%;
+    min-height:100%;
+    align-items:center;
+    justify-content:center;
+  }
+  .screen.active{display:flex;}
+  .menu-screen, .settings-screen, .game-screen{
+    min-height:100vh;
+    padding:20px 16px;
+  }
+  .menu-card{
+    width:100%;
+    max-width:380px;
+    margin:0 auto;
+    text-align:center;
+  }
+  .menu-title{
+    font-size:3.6rem;
+    margin:0 0 4px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    letter-spacing:2px;
+    filter:drop-shadow(0 4px 18px rgba(255,77,46,0.35));
+  }
+  .menu-sub{
+    color:var(--muted);
+    font-size:0.85rem;
+    margin:0 0 36px;
+  }
+  .menu-buttons{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .btn-big{
+    padding:15px 18px;
+    font-size:1rem;
+    border-radius:12px;
+  }
+  .menu-best{
+    margin-top:28px;
+    font-size:0.85rem;
+    color:var(--muted);
+  }
+  .menu-best b{color:var(--accent2);}
+
+  .settings-title{
+    font-size:1.6rem;
+    margin:0 0 26px;
+    text-align:center;
+  }
+  .settings-block{
+    background:var(--cell);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .settings-label{
+    font-size:0.8rem;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    margin-bottom:10px;
+  }
+  .settings-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .settings-row .settings-label{margin-bottom:0;}
+  .lang-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .lang-btn{
+    padding:10px 8px;
+    border-radius:9px;
+    border:1px solid var(--line);
+    background:var(--board);
+    color:var(--text);
+    font-size:0.85rem;
+    cursor:pointer;
+    transition:transform .12s ease, border-color .12s ease;
+  }
+  .lang-btn:active{transform:scale(0.95);}
+  .lang-btn.active{
+    border-color:var(--accent);
+    background:linear-gradient(135deg, rgba(255,77,46,0.18), rgba(255,176,46,0.12));
+    color:var(--accent2);
+    font-weight:bold;
+  }
+
+  .switch{
+    position:relative;
+    display:inline-block;
+    width:48px;
+    height:27px;
+  }
+  .switch input{opacity:0;width:0;height:0;}
+  .switch-slider{
+    position:absolute;
+    cursor:pointer;
+    inset:0;
+    background:var(--board);
+    border:1px solid var(--line);
+    border-radius:27px;
+    transition:.2s;
+  }
+  .switch-slider:before{
+    position:absolute;
+    content:"";
+    height:19px;width:19px;
+    left:3px;top:3px;
+    background:var(--muted);
+    border-radius:50%;
+    transition:.2s;
+  }
+  .switch input:checked + .switch-slider{
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border-color:transparent;
+  }
+  .switch input:checked + .switch-slider:before{
+    transform:translateX(20px);
+    background:#1a1006;
+  }
+
+  @media (max-width:380px){
+    .title-block h1{font-size:1.9rem;}
+    .score-box{padding:6px 10px;min-width:54px;}
+    .score-box .val{font-size:1rem;}
+    .menu-title{font-size:2.8rem;}
+  }
+</style>
+</head>
+<body>
+
+<!-- BOSH MENYU -->
+<div class="screen menu-screen" id="menuScreen">
+  <div class="menu-card">
+    <h1 class="menu-title">2048</h1>
+    <p class="menu-sub" data-i18n="subtitle">Bir hil sonlarni birlashtir!</p>
+    <div class="menu-buttons">
+      <button class="btn btn-primary btn-big" id="continueMenuBtn" style="display:none;">
+        <span data-i18n="continue">Davom etish</span>
+      </button>
+      <button class="btn btn-primary btn-big" id="newGameMenuBtn">
+        <span data-i18n="newGame">Yangi o'yin</span>
+      </button>
+      <button class="btn btn-ghost btn-big" id="settingsMenuBtn">
+        <span data-i18n="settings">Sozlamalar</span>
+      </button>
+    </div>
+    <div class="menu-best">
+      <span data-i18n="bestScore">Rekord</span>: <b id="menuBestVal">0</b>
+    </div>
+  </div>
+</div>
+
+<!-- SOZLAMALAR -->
+<div class="screen settings-screen" id="settingsScreen">
+  <div class="menu-card">
+    <h2 class="settings-title" data-i18n="settingsTitle">Sozlamalar</h2>
+
+    <div class="settings-block">
+      <div class="settings-label" data-i18n="language">Til</div>
+      <div class="lang-grid" id="langGrid"></div>
+    </div>
+
+    <div class="settings-block">
+      <div class="settings-row">
+        <div class="settings-label" data-i18n="sound">Tovush</div>
+        <label class="switch">
+          <input type="checkbox" id="soundToggle" checked>
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-big" id="backFromSettingsBtn" style="margin-top:18px;">
+      <span data-i18n="back">Orqaga</span>
+    </button>
+  </div>
+</div>
+
+<!-- O'YIN EKRANI -->
+<div class="screen game-screen" id="gameScreen">
+<div class="wrap">
+  <div class="top">
+    <div class="title-block">
+      <h1>2048</h1>
+      <p data-i18n="subtitle">Bir hil sonlarni birlashtir!</p>
+    </div>
+    <div class="scores">
+      <div class="score-box">
+        <div class="lbl" data-i18n="score">Ball</div>
+        <div class="val" id="scoreVal">0</div>
+      </div>
+      <div class="score-box">
+        <div class="lbl" data-i18n="bestScore">Rekord</div>
+        <div class="val" id="bestVal">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls-row">
+    <span class="hint" data-i18n="hint">← ↑ → ↓ yoki barmoq bilan suring</span>
+    <div class="pause-icon-row">
+      <button class="btn btn-ghost" id="pauseBtn">⏸ <span data-i18n="menuBtn">Menyu</span></button>
+    </div>
+  </div>
+
+  <div class="board-outer" id="boardOuter">
+    <div class="board-bg" id="boardBg"></div>
+    <div class="tiles-layer" id="tilesLayer"></div>
+  </div>
+
+  <div class="difficulty-bar"><div class="difficulty-fill" id="diffFill"></div></div>
+  <div class="difficulty-label" id="diffLabel">Qiyinlik: oson</div>
+</div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <h2 id="overlayTitle" data-i18n="gameOver">O'yin tugadi</h2>
+    <div class="newrec" id="newRecBadge" style="display:none;" data-i18n="newRecord">🏆 YANGI REKORD!</div>
+    <div class="scoreline">
+      <div>
+        <div class="lbl" data-i18n="yourScore">Sizning ball</div>
+        <div class="val" id="finalScore">0</div>
+      </div>
+      <div>
+        <div class="lbl" data-i18n="oldRecord">Eski rekord</div>
+        <div class="val" id="oldRecord">0</div>
+      </div>
+    </div>
+    <div class="overlay-buttons">
+      <button class="btn btn-ghost" id="exitBtn"><span data-i18n="exit">Chiqish</span></button>
+      <button class="btn btn-primary" id="restartBtn"><span data-i18n="restart">Qaytadan</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.I18N = {
+  uz: {
+    subtitle:"Bir hil sonlarni birlashtir!",
+    continue:"Davom etish", newGame:"Yangi o'yin", settings:"Sozlamalar",
+    bestScore:"Rekord", settingsTitle:"Sozlamalar", language:"Til", sound:"Tovush",
+    back:"Orqaga", score:"Ball", hint:"← ↑ → ↓ yoki barmoq bilan suring",
+    menuBtn:"Menyu", gameOver:"O'yin tugadi", newRecord:"🏆 YANGI REKORD!",
+    yourScore:"Sizning ball", oldRecord:"Eski rekord", exit:"Chiqish", restart:"Qaytadan",
+    pauseTitle:"To'xtatildi", currentScore:"Joriy ball", continueGame:"Davom etish",
+    restartConfirm:"↻ Qaytadan boshlash", difficultyEasy:"oson", difficultyMid:"o'rtacha", difficultyHard:"qiyin",
+    difficultyLabel:"Qiyinlik"
+  },
+  ru: {
+    subtitle:"Объединяй одинаковые числа!",
+    continue:"Продолжить", newGame:"Новая игра", settings:"Настройки",
+    bestScore:"Рекорд", settingsTitle:"Настройки", language:"Язык", sound:"Звук",
+    back:"Назад", score:"Очки", hint:"← ↑ → ↓ или свайп пальцем",
+    menuBtn:"Меню", gameOver:"Игра окончена", newRecord:"🏆 НОВЫЙ РЕКОРД!",
+    yourScore:"Ваш счёт", oldRecord:"Старый рекорд", exit:"Выход", restart:"Заново",
+    pauseTitle:"Пауза", currentScore:"Текущий счёт", continueGame:"Продолжить",
+    restartConfirm:"↻ Начать заново", difficultyEasy:"легко", difficultyMid:"средне", difficultyHard:"сложно",
+    difficultyLabel:"Сложность"
+  },
+  en: {
+    subtitle:"Merge the matching numbers!",
+    continue:"Continue", newGame:"New Game", settings:"Settings",
+    bestScore:"Best", settingsTitle:"Settings", language:"Language", sound:"Sound",
+    back:"Back", score:"Score", hint:"← ↑ → ↓ or swipe with your finger",
+    menuBtn:"Menu", gameOver:"Game Over", newRecord:"🏆 NEW RECORD!",
+    yourScore:"Your Score", oldRecord:"Previous Best", exit:"Exit", restart:"Restart",
+    pauseTitle:"Paused", currentScore:"Current Score", continueGame:"Continue",
+    restartConfirm:"↻ Start Over", difficultyEasy:"easy", difficultyMid:"medium", difficultyHard:"hard",
+    difficultyLabel:"Difficulty"
+  },
+  tr: {
+    subtitle:"Aynı sayıları birleştir!",
+    continue:"Devam et", newGame:"Yeni oyun", settings:"Ayarlar",
+    bestScore:"Rekor", settingsTitle:"Ayarlar", language:"Dil", sound:"Ses",
+    back:"Geri", score:"Puan", hint:"← ↑ → ↓ veya parmağınla kaydır",
+    menuBtn:"Menü", gameOver:"Oyun bitti", newRecord:"🏆 YENİ REKOR!",
+    yourScore:"Puanınız", oldRecord:"Önceki rekor", exit:"Çıkış", restart:"Yeniden başla",
+    pauseTitle:"Duraklatıldı", currentScore:"Mevcut puan", continueGame:"Devam et",
+    restartConfirm:"↻ Yeniden başla", difficultyEasy:"kolay", difficultyMid:"orta", difficultyHard:"zor",
+    difficultyLabel:"Zorluk"
+  },
+  kk: {
+    subtitle:"Бірдей сандарды біріктір!",
+    continue:"Жалғастыру", newGame:"Жаңа ойын", settings:"Баптаулар",
+    bestScore:"Рекорд", settingsTitle:"Баптаулар", language:"Тіл", sound:"Дауыс",
+    back:"Артқа", score:"Ұпай", hint:"← ↑ → ↓ немесе саусақпен сүртіңіз",
+    menuBtn:"Мәзір", gameOver:"Ойын аяқталды", newRecord:"🏆 ЖАҢА РЕКОРД!",
+    yourScore:"Сіздің ұпайыңыз", oldRecord:"Алдыңғы рекорд", exit:"Шығу", restart:"Қайтадан",
+    pauseTitle:"Кідіртілді", currentScore:"Ағымдағы ұпай", continueGame:"Жалғастыру",
+    restartConfirm:"↻ Қайтадан бастау", difficultyEasy:"оңай", difficultyMid:"орташа", difficultyHard:"қиын",
+    difficultyLabel:"Қиындық"
+  }
+};
+window.LANG_NAMES = {
+  uz:"O'zbekcha", ru:"Русский", en:"English", tr:"Türkçe", kk:"Қазақша"
+};
+</script>
+
+
+
+
+<script>
+(function(){
+  const SIZE = 4;
+  const GAP = 12;
+  let board = []; // {id, value, r, c}
+  let nextId = 1;
+  let score = 0;
+  let best = 0;
+  let gameOver = false;
+  let won2048Announced = false;
+  let paused = false;
+  let moveCount = 0;
+  let hardStreak = 0; // qiyinlik tsikli uchun
+
+  const STORAGE_KEY = 'game2048_state';
+  const BEST_KEY = 'game2048_best';
+  const SETTINGS_KEY = 'game2048_settings';
+  let hasSavedGame = false; // saqlangan progress mavjudligi (Davom etish tugmasi uchun)
+
+  let currentLang = 'uz';
+  let soundOn = true;
+
+  const boardBg = document.getElementById('boardBg');
+  const tilesLayer = document.getElementById('tilesLayer');
+  const scoreVal = document.getElementById('scoreVal');
+  const bestVal = document.getElementById('bestVal');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const newRecBadge = document.getElementById('newRecBadge');
+  const finalScore = document.getElementById('finalScore');
+  const oldRecord = document.getElementById('oldRecord');
+  const restartBtn = document.getElementById('restartBtn');
+  const exitBtn = document.getElementById('exitBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const diffFill = document.getElementById('diffFill');
+  const diffLabel = document.getElementById('diffLabel');
+
+  // Ekranlar
+  const menuScreen = document.getElementById('menuScreen');
+  const settingsScreen = document.getElementById('settingsScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const continueMenuBtn = document.getElementById('continueMenuBtn');
+  const newGameMenuBtn = document.getElementById('newGameMenuBtn');
+  const settingsMenuBtn = document.getElementById('settingsMenuBtn');
+  const backFromSettingsBtn = document.getElementById('backFromSettingsBtn');
+  const menuBestVal = document.getElementById('menuBestVal');
+  const langGrid = document.getElementById('langGrid');
+  const soundToggle = document.getElementById('soundToggle');
+
+  function showScreen(name){
+    [menuScreen, settingsScreen, gameScreen].forEach(s=>s.classList.remove('active'));
+    if(name==='menu') menuScreen.classList.add('active');
+    else if(name==='settings') settingsScreen.classList.add('active');
+    else if(name==='game') gameScreen.classList.add('active');
+  }
+
+  // bg katakchalarni chizish
+  for(let i=0;i<16;i++){
+    const c = document.createElement('div');
+    c.className='cell-bg';
+    boardBg.appendChild(c);
+  }
+
+  function cellSize(){
+    const layerW = tilesLayer.clientWidth;
+    return (layerW - GAP*(SIZE-1)) / SIZE;
+  }
+
+  // ===== TOVUSH TIZIMI (Web Audio API, fayl shart emas) =====
+  let audioCtx = null;
+  function ensureAudioCtx(){
+    if(!audioCtx){
+      try{
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }catch(e){ audioCtx=null; }
+    }
+    if(audioCtx && audioCtx.state==='suspended'){
+      audioCtx.resume().catch(()=>{});
+    }
+    return audioCtx;
+  }
+
+  function playTone(freq, duration, type, gainStart, delay){
+    if(!soundOn) return;
+    const ctx = ensureAudioCtx();
+    if(!ctx) return;
+    const t0 = ctx.currentTime + (delay||0);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(gainStart!=null?gainStart:0.18, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0+duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0+duration+0.02);
+  }
+
+  function sndMove(){
+    playTone(220, 0.07, 'triangle', 0.10);
+  }
+  function sndMerge(value){
+    // qiymat oshgani sayin tovush balandroq
+    const base = 260 + Math.min(10, Math.log2(value||2))*22;
+    playTone(base, 0.12, 'sine', 0.20);
+    playTone(base*1.5, 0.10, 'sine', 0.10, 0.03);
+  }
+  function sndSpawn(){
+    playTone(520, 0.06, 'sine', 0.08);
+  }
+  function sndGameOver(){
+    playTone(300, 0.18, 'sawtooth', 0.14);
+    playTone(220, 0.22, 'sawtooth', 0.12, 0.12);
+    playTone(150, 0.3, 'sawtooth', 0.10, 0.26);
+  }
+  function sndWin(){
+    [0,1,2,3].forEach((i)=>{
+      playTone(440*Math.pow(2,i/12*4), 0.16, 'triangle', 0.14, i*0.09);
+    });
+  }
+  function sndClick(){
+    playTone(680, 0.05, 'square', 0.06);
+  }
+
+  // ===== TIL TIZIMI =====
+  function tr(key){
+    const dict = window.I18N[currentLang] || window.I18N.uz;
+    return dict[key] || window.I18N.uz[key] || key;
+  }
+
+  function applyLanguage(){
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      el.textContent = tr(key);
+    });
+    overlayTitle.textContent = gameOver ? tr('gameOver') : overlayTitle.textContent;
+    updateDifficultyUI();
+  }
+
+  function buildLangGrid(){
+    langGrid.innerHTML='';
+    Object.keys(window.LANG_NAMES).forEach(code=>{
+      const btn = document.createElement('button');
+      btn.className = 'lang-btn'+(code===currentLang?' active':'');
+      btn.textContent = window.LANG_NAMES[code];
+      btn.addEventListener('click', ()=>{
+        currentLang = code;
+        document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        applyLanguage();
+        saveSettings();
+        sndClick();
+      });
+      langGrid.appendChild(btn);
+    });
+  }
+
+
+
+
+  function tilePos(r,c){
+    const cs = cellSize();
+    return { x: c*(cs+GAP), y: r*(cs+GAP), size: cs };
+  }
+
+  function emptyCells(){
+    const occ = new Set(board.map(t=>t.r+'_'+t.c));
+    const res = [];
+    for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+      if(!occ.has(r+'_'+c)) res.push([r,c]);
+    }
+    return res;
+  }
+
+  function spawnTile(forceValue){
+    const cells = emptyCells();
+    if(cells.length===0) return null;
+    const [r,c] = cells[Math.floor(Math.random()*cells.length)];
+    let value;
+    if(forceValue){
+      value = forceValue;
+    } else {
+      // qiyinlik darajasiga qarab 4 ehtimoli ozgina o'zgaradi
+      const diff = currentDifficulty();
+      const p4 = 0.08 + diff*0.12; // 0.08 - 0.20 orasida
+      value = Math.random() < p4 ? 4 : 2;
+    }
+    const tile = {id: nextId++, value, r, c, isNew:true};
+    board.push(tile);
+    return tile;
+  }
+
+  function currentDifficulty(){
+    // 0..1 oraliqda, score asosida to'lqinsimon (ko'tarilib, pasayib)
+    const wave = (Math.sin(score/900) + 1)/2; // 0..1
+    const growth = Math.min(1, score/4000); // umumiy o'sish
+    return Math.min(1, wave*0.6 + growth*0.4);
+  }
+
+  function updateDifficultyUI(){
+    const d = currentDifficulty();
+    diffFill.style.width = Math.round(d*100)+'%';
+    let label = tr('difficultyEasy');
+    if(d>0.75) label=tr('difficultyHard');
+    else if(d>0.45) label=tr('difficultyMid');
+    diffLabel.textContent = tr('difficultyLabel')+': '+label;
+  }
+
+  function cloneBoardState(){
+    return board.map(t=>({id:t.id, value:t.value, r:t.r, c:t.c}));
+  }
+
+  function gridFromBoard(){
+    const g = Array.from({length:SIZE},()=>Array(SIZE).fill(null));
+    board.forEach(t=>{ g[t.r][t.c]=t; });
+    return g;
+  }
+
+  // Harakat logikasi: dir = 'left'|'right'|'up'|'down'
+  function move(dir){
+    if(gameOver || paused) return false;
+    const grid = gridFromBoard();
+    let moved = false;
+    let gainedScore = 0;
+    const mergedIds = [];
+    const newPositions = []; // {id, r, c}
+
+    function lineCoords(i){
+      // qaytaradi 4 ta [r,c] - tartib dir ga qarab boshidan oxirigacha
+      const coords = [];
+      for(let j=0;j<SIZE;j++){
+        if(dir==='left') coords.push([i,j]);
+        else if(dir==='right') coords.push([i,SIZE-1-j]);
+        else if(dir==='up') coords.push([j,i]);
+        else if(dir==='down') coords.push([SIZE-1-j,i]);
+      }
+      return coords;
+    }
+
+    for(let i=0;i<SIZE;i++){
+      const coords = lineCoords(i);
+      // shu qatordagi (yo'nalish bo'yicha) tilelarni olish
+      let line = coords.map(([r,c])=>grid[r][c]).filter(Boolean);
+
+      const resultLine = [];
+      let skip = false;
+      for(let k=0;k<line.length;k++){
+        if(skip){ skip=false; continue; }
+        const cur = line[k];
+        const nxt = line[k+1];
+        if(nxt && nxt.value===cur.value){
+          // merge
+          const newVal = cur.value*2;
+          gainedScore += newVal;
+          resultLine.push({value:newVal, mergedFrom:[cur.id,nxt.id], id:nxt.id});
+          skip = true;
+        } else {
+          resultLine.push({value:cur.value, id:cur.id, mergedFrom:null});
+        }
+      }
+
+      // joylashtirish
+      for(let k=0;k<resultLine.length;k++){
+        const [r,c] = coords[k];
+        const item = resultLine[k];
+        newPositions.push({id:item.id, r, c, value:item.value, mergedFrom:item.mergedFrom});
+      }
+    }
+
+    // moved tekshirish: eski va yangi pozitsiyalarni solishtirish
+    const oldMap = {};
+    board.forEach(t=> oldMap[t.id] = {r:t.r,c:t.c,value:t.value});
+
+    // Yangi board tuzish
+    const newBoard = [];
+    const usedOldIds = new Set();
+
+    newPositions.forEach(np=>{
+      if(np.mergedFrom){
+        usedOldIds.add(np.mergedFrom[0]);
+        usedOldIds.add(np.mergedFrom[1]);
+        newBoard.push({id:np.id, value:np.value, r:np.r, c:np.c, merged:true, mergedFrom:np.mergedFrom});
+      } else {
+        usedOldIds.add(np.id);
+        newBoard.push({id:np.id, value:np.value, r:np.r, c:np.c});
+      }
+    });
+
+    // harakat bo'lganligini tekshirish
+    newBoard.forEach(nt=>{
+      const old = oldMap[nt.id];
+      if(!old){ moved = true; return; }
+      if(old.r!==nt.r || old.c!==nt.c) moved = true;
+    });
+    // merge bo'lsa ham moved=true, chunki kataklar soni kamayadi
+    if(newBoard.length !== board.length) moved = true;
+
+    if(!moved) return false;
+
+    // eng katta birlashgan qiymatni topish (tovush balandligi uchun)
+    let maxMergedValue = 0;
+    newBoard.forEach(nt=>{
+      if(nt.merged && nt.value>maxMergedValue) maxMergedValue = nt.value;
+    });
+
+    board = newBoard;
+    score += gainedScore;
+    if(score>best){ best = score; }
+
+    render(true);
+    updateScores();
+
+    sndMove();
+    if(maxMergedValue>0){
+      sndMerge(maxMergedValue);
+    }
+
+    // yangi tile qo'shish (animatsiya tugagandan keyin biroz kechikish bilan)
+    setTimeout(()=>{
+      const t = spawnTile();
+      if(t) sndSpawn();
+      render(false);
+      checkGameOver();
+      if(!gameOver){
+        saveProgress();
+      }
+    }, 140);
+
+    moveCount++;
+    updateDifficultyUI();
+    return true;
+  }
+
+  function checkGameOver(){
+    if(emptyCells().length>0) return;
+    // bo'sh joy yo'q, lekin merge imkoni bormi tekshiramiz
+    const grid = gridFromBoard();
+    for(let r=0;r<SIZE;r++){
+      for(let c=0;c<SIZE;c++){
+        const v = grid[r][c].value;
+        if(c<SIZE-1 && grid[r][c+1].value===v) return;
+        if(r<SIZE-1 && grid[r+1][c].value===v) return;
+      }
+    }
+    endGame();
+  }
+
+  function endGame(){
+    gameOver = true;
+    hasSavedGame = false;
+    const isNewRecord = score>0 && score>prevBestBeforeGame;
+    finalScore.textContent = score;
+    oldRecord.textContent = prevBestBeforeGame;
+    newRecBadge.style.display = isNewRecord ? 'block':'none';
+    overlayTitle.textContent = tr('gameOver');
+    overlay.classList.add('show');
+    if(score>best) best = score;
+    updateScores();
+    saveBest();
+    clearSavedGame();
+    if(isNewRecord) sndWin(); else sndGameOver();
+  }
+
+  let prevBestBeforeGame = 0;
+
+  function updateScores(){
+    scoreVal.textContent = score;
+    bestVal.textContent = best;
+    menuBestVal.textContent = best;
+  }
+
+  const tileElements = {}; // id -> {outer, inner}
+
+  function render(animate){
+    const currentIds = new Set(board.map(t=>t.id));
+    Object.keys(tileElements).forEach(id=>{
+      if(!currentIds.has(Number(id))){
+        const rec = tileElements[id];
+        if(rec && rec.outer && rec.outer.parentNode) rec.outer.parentNode.removeChild(rec.outer);
+        delete tileElements[id];
+      }
+    });
+
+    board.forEach(t=>{
+      const pos = tilePos(t.r,t.c);
+      let rec = tileElements[t.id];
+      const isNewElement = !rec;
+      if(isNewElement){
+        const outer = document.createElement('div');
+        outer.className = 'tile';
+        const inner = document.createElement('div');
+        outer.appendChild(inner);
+        tilesLayer.appendChild(outer);
+        rec = {outer, inner};
+        tileElements[t.id] = rec;
+      }
+      const {outer, inner} = rec;
+      outer.style.width = pos.size+'px';
+      outer.style.height = pos.size+'px';
+      inner.className = 'tile-inner v'+t.value;
+      const fontSize = pos.size*0.4;
+      inner.style.fontSize = fontSize+'px';
+      inner.textContent = t.value;
+
+      if(isNewElement){
+        outer.style.transition = 'none';
+        outer.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+        if(t.isNew){
+          outer.classList.add('tile-spawn');
+        }
+        requestAnimationFrame(()=>{
+          outer.style.transition = '';
+        });
+      } else {
+        outer.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+      }
+
+      if(t.merged){
+        outer.classList.add('tile-merge');
+        setTimeout(()=>{ outer.classList.remove('tile-merge'); }, 170);
+      }
+      t.isNew=false;
+      t.merged=false;
+    });
+  }
+
+  function newGame(){
+    board=[];
+    Object.keys(tileElements).forEach(id=>delete tileElements[id]);
+    tilesLayer.innerHTML='';
+    score=0;
+    gameOver=false;
+    paused=false;
+    prevBestBeforeGame = best;
+    overlay.classList.remove('show');
+    spawnTile();
+    spawnTile();
+    render(false);
+    updateScores();
+    updateDifficultyUI();
+    saveProgress();
+    saveBest();
+  }
+
+  async function saveProgress(){
+    const state = {
+      board: cloneBoardState(),
+      score, best, nextId
+    };
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      hasSavedGame = true;
+    }catch(e){ /* saqlash muvaffaqiyatsiz bo'lsa o'yin baribir davom etadi */ }
+  }
+  async function saveBest(){
+    try{
+      localStorage.setItem(BEST_KEY, JSON.stringify({best}));
+    }catch(e){}
+  }
+  async function clearSavedGame(){
+    hasSavedGame = false;
+    try{
+      localStorage.removeItem(STORAGE_KEY);
+    }catch(e){}
+  }
+  async function loadSavedGame(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return null;
+  }
+  async function loadBest(){
+    try{
+      const raw = localStorage.getItem(BEST_KEY);
+      if(raw) return JSON.parse(raw).best || 0;
+    }catch(e){}
+    return 0;
+  }
+  async function saveSettings(){
+    try{
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({lang:currentLang, sound:soundOn}));
+    }catch(e){}
+  }
+  async function loadSettings(){
+    try{
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return null;
+  }
+
+  // Klaviatura
+  document.addEventListener('keydown', e=>{
+    if(!gameScreen.classList.contains('active')) return;
+    if(overlay.classList.contains('show')) return;
+    let dir=null;
+    if(e.key==='ArrowLeft') dir='left';
+    else if(e.key==='ArrowRight') dir='right';
+    else if(e.key==='ArrowUp') dir='up';
+    else if(e.key==='ArrowDown') dir='down';
+    if(dir){ e.preventDefault(); move(dir); }
+  });
+
+  // Touch / swipe
+  let touchStartX=0, touchStartY=0;
+  const boardOuter = document.getElementById('boardOuter');
+  boardOuter.addEventListener('touchstart', e=>{
+    const t = e.touches[0];
+    touchStartX=t.clientX; touchStartY=t.clientY;
+  }, {passive:true});
+  boardOuter.addEventListener('touchend', e=>{
+    const t = e.changedTouches[0];
+    const dx = t.clientX-touchStartX;
+    const dy = t.clientY-touchStartY;
+    if(Math.abs(dx)<20 && Math.abs(dy)<20) return;
+    if(overlay.classList.contains('show')) return;
+    if(Math.abs(dx)>Math.abs(dy)){
+      move(dx>0?'right':'left');
+    } else {
+      move(dy>0?'down':'up');
+    }
+  }, {passive:true});
+
+  // ===== MENYU / SOZLAMALAR / O'YIN o'tishlari =====
+
+  function openMenu(){
+    continueMenuBtn.style.display = hasSavedGame ? 'block' : 'none';
+    menuBestVal.textContent = best;
+    showScreen('menu');
+  }
+
+  function startNewGameFromMenu(){
+    sndClick();
+    newGame(); // ichida hasSavedGame=true bo'ladi (yangi progress yaratiladi)
+    showScreen('game');
+  }
+
+  async function continueGameFromMenu(){
+    sndClick();
+    const saved = await loadSavedGame();
+    if(saved && Array.isArray(saved.board) && saved.board.length>0){
+      board = saved.board.map(x=>({...x}));
+      score = saved.score || 0;
+      best = Math.max(best, saved.best || 0);
+      nextId = saved.nextId || (Math.max(...board.map(x=>x.id))+1);
+      gameOver = false;
+      prevBestBeforeGame = best;
+      Object.keys(tileElements).forEach(id=>delete tileElements[id]);
+      tilesLayer.innerHTML='';
+      render(false);
+      updateScores();
+      updateDifficultyUI();
+      showScreen('game');
+    } else {
+      startNewGameFromMenu();
+    }
+  }
+
+  newGameMenuBtn.addEventListener('click', startNewGameFromMenu);
+  continueMenuBtn.addEventListener('click', continueGameFromMenu);
+
+  settingsMenuBtn.addEventListener('click', ()=>{
+    sndClick();
+    showScreen('settings');
+  });
+  backFromSettingsBtn.addEventListener('click', ()=>{
+    sndClick();
+    showScreen('menu');
+  });
+
+  soundToggle.addEventListener('change', ()=>{
+    soundOn = soundToggle.checked;
+    saveSettings();
+    if(soundOn) sndClick();
+  });
+
+  // O'yin ichidagi tugmalar
+  restartBtn.addEventListener('click', ()=>{
+    sndClick();
+    newGame();
+    showScreen('game');
+  });
+
+  exitBtn.addEventListener('click', ()=>{
+    sndClick();
+    overlay.classList.remove('show');
+    openMenu();
+    showScreen('menu');
+  });
+
+  // "Stop" tugmasi: o'yindan chiqmasdan, progress saqlanib, bosh menyuga qaytadi.
+  // Shu sababli menyuda "Davom etish" yana chiqadi.
+  pauseBtn.addEventListener('click', ()=>{
+    if(gameOver) return;
+    sndClick();
+    saveProgress();
+    openMenu();
+  });
+
+  window.addEventListener('resize', ()=>render(false));
+
+  // ===== BOSHLANISH =====
+  async function init(){
+    const settings = await loadSettings();
+    if(settings){
+      if(settings.lang && window.I18N[settings.lang]) currentLang = settings.lang;
+      if(typeof settings.sound === 'boolean') soundOn = settings.sound;
+    }
+    soundToggle.checked = soundOn;
+    buildLangGrid();
+    applyLanguage();
+
+    best = await loadBest();
+    const saved = await loadSavedGame();
+    hasSavedGame = !!(saved && Array.isArray(saved.board) && saved.board.length>0);
+
+    // O'yin holatini fonda tayyorlab qo'yamiz (Davom etish bosilganda darrov ko'rinishi uchun),
+    // lekin ekranni darrov o'yinga o'tkazmaymiz — avval menyu chiqadi.
+    if(hasSavedGame){
+      board = saved.board.map(x=>({...x}));
+      score = saved.score || 0;
+      best = Math.max(best, saved.best || 0);
+      nextId = saved.nextId || (Math.max(...board.map(x=>x.id))+1);
+      gameOver = false;
+      prevBestBeforeGame = best;
+      render(false);
+      updateScores();
+      updateDifficultyUI();
+    }
+
+    openMenu();
+    showScreen('menu');
+  }
+
+  init();
+
+  // Android "orqaga" tugmasi:
+  // - overlay (gameover) ochiq bo'lsa -> yopadi va menyuga qaytadi
+  // - o'yin ekranida bo'lsa -> Stop bosgandagi kabi menyuga chiqadi (progress saqlanadi)
+  // - sozlamalarda bo'lsa -> menyuga qaytadi
+  // - allaqachon bosh menyuda bo'lsa -> ilovani yopish uchun ikkinchi marta bosish kerak
+  let lastBackPress = 0;
+  function handleBackButton(){
+    if(overlay.classList.contains('show')){
+      overlay.classList.remove('show');
+      openMenu();
+      return;
+    }
+    if(settingsScreen.classList.contains('active')){
+      showScreen('menu');
+      return;
+    }
+    if(gameScreen.classList.contains('active')){
+      if(!gameOver){ saveProgress(); }
+      openMenu();
+      return;
+    }
+    // menyuda turibmiz: ikkinchi marta tez bosilsa ilovani yopamiz
+    const now = Date.now();
+    if(now - lastBackPress < 1500){
+      if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+        window.Capacitor.Plugins.App.exitApp();
+      }
+    } else {
+      lastBackPress = now;
+    }
+  }
+  document.addEventListener('backbutton', handleBackButton);
+  if(window.Capacitor){
+    try{
+      window.Capacitor.Plugins.App.addListener('backButton', handleBackButton);
+    }catch(e){}
+  }
+})();
+
+</script>
+</body>
+</html>
